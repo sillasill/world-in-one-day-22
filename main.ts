@@ -11,7 +11,8 @@
 // competition and is stored beside this program as entry.png (JPEG
 // bytes, 1024x1024, under 1 MiB); this program only carries those exact
 // bytes to the output directory, so both graded runs write identical
-// output.
+// output. After writing, the program checks the copied file's size and
+// its JPEG integrity (SOI/EOI markers) and fails loudly on any mismatch.
 //
 // Run locally with: mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
 
@@ -28,4 +29,14 @@ writeFileSync(outPath, image);
 // Fail loudly instead of silently shipping a truncated file.
 if (statSync(outPath).size !== image.length) {
   throw new Error(`entry.png written incomplete: ${statSync(outPath).size} of ${image.length} bytes`);
+}
+
+// Verify the copied file's integrity as a JPEG: it must start with the
+// SOI marker (0xFF, 0xD8) and end with the EOI marker (0xFF, 0xD9).
+const written = readFileSync(outPath);
+if (written.length < 4 || written[0] !== 0xff || written[1] !== 0xd8) {
+  throw new Error('entry.png failed integrity check: missing JPEG SOI marker (0xFF, 0xD8)');
+}
+if (written[written.length - 2] !== 0xff || written[written.length - 1] !== 0xd9) {
+  throw new Error('entry.png failed integrity check: missing JPEG EOI marker (0xFF, 0xD9)');
 }
